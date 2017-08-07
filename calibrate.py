@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import glob
 import pickle
 
@@ -22,7 +23,7 @@ images = glob.glob('./camera_cal/calibration*.jpg')
 plt.figure(figsize=(12, 10)) # to display images
 
 for i, fname in enumerate(images):
-    img = cv2.imread(fname);
+    img = mpimg.imread(fname);
     # Convert image to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # Find the chessboard corners
@@ -45,10 +46,10 @@ plt.savefig('corners.png', bbox_inches='tight')
 plt.show(block=True)
 
 # Camera calibration using object points and image points
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, cv2.imread(images[0]).shape[0:2], None, None)
+ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, mpimg.imread(images[0]).shape[0:2], None, None)
 
 # Test on one of the images
-img = cv2.imread(images[0]);
+img = mpimg.imread(images[0]);
 undist = cv2.undistort(img, mtx, dist, None, mtx);
 plt.figure(figsize=(12, 10))
 plt.subplot(1, 2, 1)
