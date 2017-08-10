@@ -78,27 +78,18 @@ def thresholding(img, plot = False):
 
     return combined_binary
 
-def perspective_tranform(img):
-    img_size 
-
+def perspective_transform(img, plot = False):
+    warped = cv2.warpPerspective(img, p_M, (img.shape[1], img.shape[0]))
+    if plot == True:
+        img_lines = cv2.polylines(img, [np.int32(p_src)], True, (255, 0, 0), 3)
+        warped_lines = cv2.polylines(warped, [np.int32(p_dst)], True, (255, 0, 0), 3)
+        plotTwo((img_lines, warped_lines), ('img', 'warped'))
+    return warped
 
 # Read in the saved camera calibration matrix and distortion cofficients
 dist_pickle = pickle.load(open("calibration.p", "rb"))
 mtx = dist_pickle["mtx"]
 dist = dist_pickle["dist"]
-
-# List of all the test images
-testFiles = glob.glob('./test_images/*.jpg')
-
-"""
-# Process all the images: distort, thresholding, and perspective transform
-for fname in testFiles:
-    img = mpimg.imread(fname)
-    undist = undistort(img)
-    plotTwo((img, undist), ('original', 'undistorted'))
-    thresh = thresholding(undist, plot=True)
-"""
-
 
 
 # FIXME: pw test color and threshold
@@ -109,10 +100,43 @@ plotTwo((example, undist), ('original', 'undistorted'))
 thresh = thresholding(undist, plot=False)
 plotTwo((undist, thresh), ('undistorted', 'thresholding'), ('', 'gray'))
 
+"""
 h, w = thresh.shape[:2]
 src = np.float32([(575,464), (707,464), (258,682), (1049,682)])
 dst = np.float32([(300,0), (w-300,0), (300,h), (w-300,h)])
 M = cv2.getPerspectiveTransform(src, dst)
 warped = cv2.warpPerspective(thresh, M, (w, h))
 plotTwo((thresh, warped), ('thresholding', 'warped'), ('gray', 'gray'))
+"""
 
+# FIXME: on the undistorted image
+
+# Get perspective transform matrix
+h, w = undist.shape[:2]
+# (216, 705), (585, 454), (687, 450), (1073, 693)
+slope1 = (705-454)/(216-585);
+slope2 = (450-693)/(687-1073)
+x1 =  (455-h)/slope1+198
+x2 = 1122 - (h-455)/slope2
+print ("x1: ", x1, ", x2: ", x2)
+
+p_src = np.float32([(198,h), (x1-3,455), (x2-3,455), (1122,h)])
+p_dst = np.float32([(300,h), (300,0), (w-300,0), (w-300, h)])
+
+p_M = cv2.getPerspectiveTransform(p_src, p_dst)
+
+warped = perspective_transform(undist, plot = True)
+
+# List of all the test images
+testFiles = glob.glob('./test_images/*.jpg')
+
+# Process all the images: distort, thresholding, and perspective transform
+for fname in testFiles:
+    img = mpimg.imread(fname)
+    undist = undistort(img)
+    plotTwo((img, undist), ('original', 'undistorted'))
+    thresh = thresholding(undist)
+    plotTwo((undist, thresh), ('undistorted', 'thresholding'), ('', 'gray'))
+    perspective_transform(undist, plot=True)
+    warped = perspective_transform(thresh)
+    plotTwo((thresh, warped), ('thresholding', 'warped'), ('gray', 'gray'))
