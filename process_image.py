@@ -103,10 +103,11 @@ def run_all_test_images():
         perspective_transform(undist, plot=True)
         warped = perspective_transform(thresh)
         plotTwo((thresh, warped), ('Thresholding'+name, 'Warped'+name), ('gray', 'gray'))
-        find_lane_lines(warped)
+        left_fitx, right_fitx, ploty = find_lane_lines(warped, plot=True)
+        result = draw_lane(img, warped, left_fitx, right_fitx, ploty, plot=True)
 
 #FIXME: findling the line 
-def find_lane_lines(img):
+def find_lane_lines(img, plot=False):
     # Parameters setting
     num_windows = 9
     window_height = np.int(img.shape[0]/num_windows)
@@ -136,9 +137,12 @@ def find_lane_lines(img):
         win_y = (img.shape[0] - (window+1)*window_height, img.shape[0] - window*window_height)
         win_left_x = (leftx_current - margin, leftx_current + margin)
         win_right_x = (rightx_current - margin, rightx_current + margin)
-        # Draw the windows
-        cv2.rectangle(out_img, (win_left_x[0], win_y[0]), (win_left_x[1], win_y[1]), (0, 255, 0), 2)
-        cv2.rectangle(out_img, (win_right_x[0], win_y[0]), (win_right_x[1], win_y[1]), (0, 255, 0), 2)
+
+        if plot == True:
+            # Draw the windows
+            cv2.rectangle(out_img, (win_left_x[0], win_y[0]), (win_left_x[1], win_y[1]), (0, 255, 0), 2)
+            cv2.rectangle(out_img, (win_right_x[0], win_y[0]), (win_right_x[1], win_y[1]), (0, 255, 0), 2)
+
         # Find nonzero pixels within the window
         nonzero_left_indices = ((nonzeroy >= win_y[0]) & (nonzeroy < win_y[1]) & (nonzerox >= win_left_x[0]) & (nonzerox < win_left_x[1])).nonzero()[0]
         nonzero_right_indices = ((nonzeroy >= win_y[0]) & (nonzeroy < win_y[1]) & (nonzerox >= win_right_x[0]) & (nonzerox < win_right_x[1])).nonzero()[0]
@@ -158,22 +162,60 @@ def find_lane_lines(img):
     left_fit = np.polyfit(nonzeroy[left_lane_indices], nonzerox[left_lane_indices], 2)
     right_fit = np.polyfit(nonzeroy[right_lane_indices], nonzerox[right_lane_indices], 2)
 
-    # Plot the output image
-    # . Mark the pixels in the window: left with red, right with blue
-    out_img[nonzeroy[left_lane_indices], nonzerox[left_lane_indices]] = [255, 0, 0]
-    out_img[nonzeroy[right_lane_indices], nonzerox[right_lane_indices]] = [0, 0, 255]
-    plt.imshow(out_img)
-
-    # Plot the fitted polynomial
     ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
     right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-    plt.plot(left_fitx, ploty, color='yellow')
-    plt.plot(right_fitx, ploty, color='yellow')
-    plt.xlim(0, img.shape[1])
-    plt.ylim(img.shape[0], 0)
 
-    plt.show(block=True)
+    if plot == True:
+        # Mark the pixels in the window: left with red, right with blue
+        out_img[nonzeroy[left_lane_indices], nonzerox[left_lane_indices]] = [255, 0, 0]
+        out_img[nonzeroy[right_lane_indices], nonzerox[right_lane_indices]] = [0, 0, 255]
+        plt.imshow(out_img)
+
+        # Plot the fitted polynomial
+        plt.plot(left_fitx, ploty, color='yellow')
+        plt.plot(right_fitx, ploty, color='yellow')
+        plt.xlim(0, img.shape[1])
+        plt.ylim(img.shape[0], 0)
+
+        plt.show(block=True)
+    
+    return left_fitx, right_fitx, ploty
+
+def draw_lane(img, warped, left_fitx, right_fitx, ploty, plot=False):
+    warp_zero = np.zeros_like(warped).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+    cv2.polylines(color_warp, np.int32([pts_left]), isClosed=False, color=(255, 0, 0), thickness=20)
+    cv2.polylines(color_warp, np.int32([pts_right]), isClosed=False, color=(0, 0, 255), thickness=20)
+
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    #FIXME: should store
+    Minv = cv2.getPerspectiveTransform(p_dst, p_src)
+    new_warp = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0])) 
+    # Combine the result with the original image
+    result = cv2.addWeighted(img, 1, new_warp, 0.5, 0)
+
+    if plot == True:
+        plt.imshow(result)
+        plt.show(block=True)	
+
+    return result
+
+def process_image(img):
+    undist = undistort(img)
+    thresh = thresholding(undist)
+    warped = perspective_transform(thresh)
+    left_fitx, right_fitx, ploty = find_lane_lines(warped)
+    result = draw_lane(img, warped, left_fitx, right_fitx, ploty)
+    return result
 
 
 # Read in the saved camera calibration matrix and distortion cofficients
@@ -221,7 +263,14 @@ perspective_transform(undist, plot = True)
 warped = perspective_transform(thresh)
 plotTwo((thresh, warped), ('thresholding', 'warped'), ('gray', 'gray'))
 
-find_lane_lines(warped)
+find_lane_lines(warped, plot = True)
 
 # FIXME: test on all images
 run_all_test_images()
+
+# FIXME: on videos
+from moviepy.editor import VideoFileClip
+output1 = './project_video_processed.mp4'
+clip1 = VideoFileClip("./project_video.mp4")
+processed_clip1 = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+processed_clip1.write_videofile(output1, audio=False)
