@@ -103,14 +103,85 @@ def run_all_test_images():
         perspective_transform(undist, plot=True)
         warped = perspective_transform(thresh)
         plotTwo((thresh, warped), ('Thresholding'+name, 'Warped'+name), ('gray', 'gray'))
+        find_lane_lines(warped)
+
+#FIXME: findling the line 
+def find_lane_lines(img):
+    # Parameters setting
+    num_windows = 9
+    window_height = np.int(img.shape[0]/num_windows)
+    margin = 100 # widnow width = 2 * margin
+    min_pixels = 50 # minimum number of pixels found in one window
+
+    # Create an output image to draw on and  visualize the result
+    out_img = np.dstack((img, img, img))*255
+
+    # Starting points: The peaks of the histogram at the left half and the right half.
+    histogram = np.sum(img[img.shape[0]//2:,:], axis=0)
+    midpoint = np.int(histogram.shape[0]/2)
+    leftx_current = np.argmax(histogram[:midpoint])
+    rightx_current = np.argmax(histogram[midpoint:]) + midpoint
+
+    # X and y positions where the pixels are nonzero
+    nonzero = img.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+
+    # For pixel found within windows, record the indices to nonzero array
+    left_lane_indices = []
+    right_lane_indices = []
+
+    for window in range(num_windows):
+        # Window boundaries
+        win_y = (img.shape[0] - (window+1)*window_height, img.shape[0] - window*window_height)
+        win_left_x = (leftx_current - margin, leftx_current + margin)
+        win_right_x = (rightx_current - margin, rightx_current + margin)
+        # Draw the windows
+        cv2.rectangle(out_img, (win_left_x[0], win_y[0]), (win_left_x[1], win_y[1]), (0, 255, 0), 2)
+        cv2.rectangle(out_img, (win_right_x[0], win_y[0]), (win_right_x[1], win_y[1]), (0, 255, 0), 2)
+        # Find nonzero pixels within the window
+        nonzero_left_indices = ((nonzeroy >= win_y[0]) & (nonzeroy < win_y[1]) & (nonzerox >= win_left_x[0]) & (nonzerox < win_left_x[1])).nonzero()[0]
+        nonzero_right_indices = ((nonzeroy >= win_y[0]) & (nonzeroy < win_y[1]) & (nonzerox >= win_right_x[0]) & (nonzerox < win_right_x[1])).nonzero()[0]
+        # Record the indices of nonzero pixels
+        left_lane_indices.append(nonzero_left_indices)
+        right_lane_indices.append(nonzero_right_indices)
+        # Move to the next widnow if > minimum pixels found
+        if len(nonzero_left_indices) > min_pixels:
+            leftx_current = np.int(np.mean(nonzerox[nonzero_left_indices]))
+        if len(nonzero_right_indices) > min_pixels:
+            rightx_current = np.int(np.mean(nonzerox[nonzero_right_indices]))
+    
+    # Concatenate the indices array
+    left_lane_indices = np.concatenate(left_lane_indices)
+    right_lane_indices = np.concatenate(right_lane_indices)
+    # Fit a second order polynomial
+    left_fit = np.polyfit(nonzeroy[left_lane_indices], nonzerox[left_lane_indices], 2)
+    right_fit = np.polyfit(nonzeroy[right_lane_indices], nonzerox[right_lane_indices], 2)
+
+    # Plot the output image
+    # . Mark the pixels in the window: left with red, right with blue
+    out_img[nonzeroy[left_lane_indices], nonzerox[left_lane_indices]] = [255, 0, 0]
+    out_img[nonzeroy[right_lane_indices], nonzerox[right_lane_indices]] = [0, 0, 255]
+    plt.imshow(out_img)
+
+    # Plot the fitted polynomial
+    ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
+    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    plt.plot(left_fitx, ploty, color='yellow')
+    plt.plot(right_fitx, ploty, color='yellow')
+    plt.xlim(0, img.shape[1])
+    plt.ylim(img.shape[0], 0)
+
+    plt.show(block=True)
+
 
 # Read in the saved camera calibration matrix and distortion cofficients
 dist_pickle = pickle.load(open("calibration.p", "rb"))
 mtx = dist_pickle["mtx"]
 dist = dist_pickle["dist"]
 
-
-# FIXME: pw test color and threshold
+# FIXME: pw test color, threshold, and perspective transform
 #example = mpimg.imread('./test_images/test5.jpg');
 #example = mpimg.imread('./test_images/straight_lines1.jpg');
 example = mpimg.imread('./test_images/test4.jpg');
@@ -127,8 +198,6 @@ M = cv2.getPerspectiveTransform(src, dst)
 warped = cv2.warpPerspective(thresh, M, (w, h))
 plotTwo((thresh, warped), ('thresholding', 'warped'), ('gray', 'gray'))
 """
-
-# FIXME: on the undistorted image
 
 # Get perspective transform matrix
 h, w = undist.shape[:2]
@@ -147,5 +216,12 @@ p_dst = np.float32([(300,h), (300,0), (w-300,0), (w-300, h)])
 
 p_M = cv2.getPerspectiveTransform(p_src, p_dst)
 
-warped = perspective_transform(undist, plot = True)
+perspective_transform(undist, plot = True)
 
+warped = perspective_transform(thresh)
+plotTwo((thresh, warped), ('thresholding', 'warped'), ('gray', 'gray'))
+
+find_lane_lines(warped)
+
+# FIXME: test on all images
+run_all_test_images()
