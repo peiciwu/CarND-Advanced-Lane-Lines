@@ -7,58 +7,65 @@ import os
 import collections
 from color_thresh_utility import ImageProcessor, plotTwo
 
-ym_per_pix = 30/720 # meters per pixel in y dimension
-xm_per_pix = 3.7/700 # meters per pixel in x dimension
+# Global parameters
+ym_per_pixel = 30/720 # meters per pixel in y dimension
+xm_per_pixel = 3.7/700 # meters per pixel in x dimension
 ploty = np.linspace(0, 719, 720) # y range of image
-# FIXME: pw to delete
-frame_counter = 0
+num_failed_allowed = 10 # max number of consecutive failed frames
+num_recent_fits = 10 # max number of the past fits to average
 
-def run_all_test_images():
-    # List of all the test images
-    # FIXME: pw
-    #testFiles = glob.glob('./test_images/*.jpg')
-    #testFiles = glob.glob('./my_test_images/*.jpg')
-    testFiles = glob.glob('./my_test_images/other_types_test_images/*.jpg')
+# Use window slding to detect lines
+def run_one_image(fname, plot = False, debug = False):
+    img = mpimg.imread(fname)
+    # Pre-process all the images: distort, thresholding, and perspective transform
+    undist = image_processor.undistort(img)
+    name = '(' + os.path.splitext(os.path.basename(fname))[0] + ')'
+    plotTwo((img, undist), ('Original'+name, 'Undistorted'+name))
+    thresh = image_processor.thresholding(undist, debug)
+    plotTwo((undist, thresh), ('Undistorted'+name, 'Thresholding'+name))
+    warped = image_processor.perspective_transform(thresh, debug)
+    plotTwo((thresh, warped), ('Thresholding'+name, 'Warped'+name))
 
-    for fname in testFiles:
-        img = mpimg.imread(fname)
-        # FIXME: pw
-        print("shape: ", img.shape)
-        # Process all the images: distort, thresholding, and perspective transform
-        undist = image_processor.undistort(img)
-        name = '(' + os.path.splitext(os.path.basename(fname))[0] + ')'
-        plotTwo((img, undist), ('Original'+name, 'Undistorted'+name))
-        thresh = image_processor.thresholding(undist, plot = True)
-        plotTwo((undist, thresh), ('Undistorted'+name, 'Thresholding'+name), ('', 'gray'))
-        warped = image_processor.perspective_transform(thresh)
-        plotTwo((thresh, warped), ('Thresholding'+name, 'Warped'+name), ('gray', 'gray'))
+    # Use window sliding to find the lines
+    left_fit, right_fit = find_lane_lines_sliding_window(warped, plot)
 
-        # Use window sliding to find the lanes
-        left_fit, right_fit = find_lane_lines_sliding_window(warped, plot=True)
+    if debug:
         print(name, ": ", left_fit, ", ", right_fit)
-        result = draw_lane(img, warped, left_fit, right_fit)
-        draw_radius_of_curvature(result, (left_line.radius_of_curvature + right_line.radius_of_curvature)/ 2)
+        
+    result = draw_lane(img, warped, left_fit, right_fit)
+    
+    if plot:
+        plt.title('Detected lane'+name)
+        plt.imshow(result)
+        plt.show(block=True)
 
-        # FIXME: pw debug
+
+    # Calculate radius_of_curvature
+    curv = (cal_radius_of_curvature(left_fit) + cal_radius_of_curvature(right_fit))/2
+    draw_radius_of_curvature(result, curv)
+    draw_vehicle_position(result, left_fit, right_fit)
+
+    if debug:
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
         diff = right_fitx - left_fitx
         min_width = np.min(diff)
         max_width = np.max(diff)
-        cv2.putText(result, 'min_width = ' + str(round(min_width, 3))+' (pixel)',(50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
-        cv2.putText(result, 'max_width = ' + str(round(max_width, 3))+' (pixel)',(50,150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
+        cv2.putText(result, 'min_width = ' + str(round(min_width, 3))+' (pixel)',(50,150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
+        cv2.putText(result, 'max_width = ' + str(round(max_width, 3))+' (pixel)',(50,200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
         print("min_width: ", min_width)
         print("max_width: ", max_width)
 
-        # Reset, not using the previous fit and no smoothing.
-        left_line.reset()
-        right_line.reset()
-
-        plt.imshow(result)
-        plt.show(block=True)
+    plt.title('Detected lane with info'+name)
+    plt.imshow(result)
+    plt.show(block=True)
 
 
-#FIXME: findling the line 
+def run_all_test_images(imageDir, plot = False, debug = False):
+    testFiles = glob.glob(imageDir+'/*.jpg')
+    for fname in testFiles:
+        run_one_image(fname, plot, debug)
+
 def find_lane_lines_sliding_window(img, plot=False):
     # Parameters setting
     num_windows = 9
@@ -119,9 +126,6 @@ def find_lane_lines_sliding_window(img, plot=False):
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
 
-    left_line.add_fit(left_fit)
-    right_line.add_fit(right_fit)
-
     # Plot the current fitted polynomial
     if plot == True:
         # Mark the pixels in the window: left with red, right with blue
@@ -161,9 +165,6 @@ def find_lane_lines_using_previous_fit(img, left_fit, right_fit, plot=False):
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
 
-    left_line.add_fit(left_fit)
-    right_line.add_fit(right_fit)
-
     if plot == True:
         # Create an output image to draw on and  visualize the result
         out_img = np.dstack((img, img, img))*255
@@ -202,9 +203,11 @@ def find_lane_lines_using_previous_fit(img, left_fit, right_fit, plot=False):
 
 def draw_lane(img, warped, left_fit, right_fit):
     warp_zero = np.zeros_like(warped).astype(np.uint8)
-    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    #FIXME: pw debug
-    #color_warp = np.dstack((warp_zero, warp_zero, warp_zero, warp_zero))
+    if img.shape[2] == 3:
+        color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+    else:
+        # Images dumped from video have 4 channels.
+        color_warp = np.dstack((warp_zero, warp_zero, warp_zero, warp_zero))
 
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
     right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
@@ -229,24 +232,18 @@ def draw_lane(img, warped, left_fit, right_fit):
 # Define a class to receive the characteristics of each line detection
 class Line:
     def __init__(self):
-        # was the line detected in the last iteration?
-        self.detected = False  
         # polynomial coefficients for the most recent fit
         self.current_fit = None
         # x values of the last n fits of the line
-        # FIXME: pw 
-        #self.recent_fitted = collections.deque(maxlen=10)
-        self.recent_xfitted = collections.deque(maxlen=10)
+        self.recent_xfitted = collections.deque(maxlen=num_recent_fits)
         # polynomial coefficients averaged over the last n iterations
         self.best_fit = None  
         # radius of curvature of the best fit
         self.radius_of_curvature = None 
-        # of consecutive failed frames 
-        self.num_of_fails = 0
-        # difference in fit coefficients between last and new fits
-        self.diffs = np.array([0,0,0], dtype='float') 
-        # difference in x values between last and new fits
-        self.fitx_diffs = np.array([0,0,0], dtype='float') 
+        # frame number in the video
+        self.frame_counter = -1
+        # number of consecutive failed frames 
+        self.num_failed = 0
         """
         # x values of the last n fits of the line
         self.recent_xfitted = [] 
@@ -267,130 +264,100 @@ class Line:
         #y values for detected line pixels
         self.ally = None
         """
-    def add_fit(self, fit):
-        self.current_fit = fit
-        if self.best_fit != None:
-            self.diffs = abs(fit - self.best_fit)
+    def add_fit(self, fit, valid_line):
+        self.frame_counter += 1
 
-        fitx = fit[0]*ploty**2 + fit[1]*ploty + fit[2]
-        if len(self.recent_xfitted) > 0:
-            self.fitx_diffs = abs(fitx - self.recent_xfitted[-1])
-        self.recent_xfitted.append(fitx)
+        if not valid_line:
+            self.num_failed += 1
+        else:
+            self.current_fit = fit
 
-        avg_fitx = np.average(self.recent_xfitted, axis=0)
-        self.best_fit = np.polyfit(ploty, avg_fitx, 2)
-        self.radius_of_curvature = self.cal_radius_of_curvature(self.best_fit)
-        # FIXME: pw
-        self.detected = True
+            fitx = fit[0]*ploty**2 + fit[1]*ploty + fit[2]
+            self.recent_xfitted.append(fitx)
 
-        """
-        # FIXME: pw debug version
-        self.current_fit = fit
-        self.best_fit = fit
-        self.radius_of_curvature = self.cal_radius_of_curvature(self.best_fit)
-        self.detected = True
+            avg_fitx = np.average(self.recent_xfitted, axis=0)
+            self.best_fit = np.polyfit(ploty, avg_fitx, 2)
+            self.radius_of_curvature = cal_radius_of_curvature(self.best_fit)
 
-        fitx = fit[0]*ploty**2 + fit[1]*ploty + fit[2]
-        """
+    def do_slide_window(self):
+        if self.best_fit == None:
+            return True # Start from scratch
+        if self.num_failed >= num_failed_allowed:
+            self.reset()
+            return True
+        return False
 
     def reset(self):
-        self.detected = False  
         self.current_fit = None
-        self.recent_xfitted.clear()
         self.best_fit = None
         self.radius_of_curvature = None
         self.num_of_faileds = 0
 
-    def cal_radius_of_curvature(self, fit):
-        fitx = fit[0]*ploty**2 + fit[1]*ploty + fit[2]
-        # Fit new polynomials to x, y in world space
-        fit_cr = np.polyfit(ploty * ym_per_pix, fitx * xm_per_pix, 2)
-        y_eval = np.max(ploty)
-        curverad = ((1 + (2*fit_cr[0]*y_eval*ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
-        return curverad
-
-    def check_curvature(self, fit):
-        if self.radius_of_curvature == None:
-            return True
-        
+    def check_line(self, fit):
+        # Check radius_ofcurvature change
         curverad = cal_radius_of_curvature(fit)
         change = abs(curverad - self.radius_of_curvature)/self.radius_of_curvature
-        return change <= 0.3
+        if change > 0.3:
+            return False
 
-    def sanity_check(self, curverad):
-        if self.radius_of_curvature == None:
-            return True
+        # Check diff of polynomial cofficients between \fit and the best fit
+        diff = abs(fit - self.best_fit)
+        if diff[0] > 0.001 or diff[1] > 1 or diff[2] > 100:
+            return False
 
-        change = abs(curverad - self.radius_of_curvature)/self.radius_of_curvature
-        return change <= 0.3
+        return True
+
+def cal_radius_of_curvature(fit):
+    fitx = fit[0]*ploty**2 + fit[1]*ploty + fit[2]
+    # Fit new polynomials to x, y in world space
+    fit_cr = np.polyfit(ploty * ym_per_pixel, fitx * xm_per_pixel, 2)
+    y_eval = np.max(ploty)
+    curverad = ((1 + (2*fit_cr[0]*y_eval*ym_per_pixel + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+    return curverad
 
 # Draw radius of curvature on the result image
 def draw_radius_of_curvature(img, curv):
-    cv2.putText(img, 'Radius of curvature = ' + str(round(curv, 3))+' (m)',(50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
+    cv2.putText(img, 'Radius of curvature = ' + str(round(curv, 3))+' m',(50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
 
-def sanity_check(left_l, right_l):
-    if left_l.best_fit == None or right_l.best_fit == None:
-        return True
-
-    # Current frame has a bad fit. No need to do any further checking.
-    if left_l.current_fit == None or right_l.current_fit == None:
-        return False
-
-    if abs(left_l.current_fit[0] - right_l.current_fit[0]) > 0.001:
-        return False
-
-    return True
+# Draw vehicle position from the center of the lane
+def draw_vehicle_position(img, left_fit, right_fit):
+    left_bottom = left_fit[0]*ploty[-1]**2 + left_fit[1]*ploty[-1] + left_fit[2]
+    right_bottom = right_fit[0]*ploty[-1]**2 + right_fit[1]*ploty[-1] + right_fit[2]
+    lane_center = (left_bottom + right_bottom) / 2
+    vehicle_pos = img.shape[1]/2
+    diff = (vehicle_pos - lane_center) * xm_per_pixel
+    l_or_r = ' left' if diff < 0 else ' right'
+    
+    cv2.putText(img, 'Vehicle position : ' + str(abs(round(diff, 3)))+' m'+l_or_r+' of center',(50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
 
 def process_image(img, plot = False):
-    global frame_counter 
     undist = image_processor.undistort(img)
     thresh = image_processor.thresholding(undist)
     warped = image_processor.perspective_transform(thresh)
 
-    """
-    if left_line.detected == False or right_line.detected == False:
-        reset()
-        find_lane_lines_sliding_window(warped, plot)
+    if left_line.do_slide_window() or right_line.do_slide_window():
+        left_fit, right_fit = find_lane_lines_sliding_window(warped, plot)
     else:
-        find_lane_lines_using_previous_fit(warped, left_line.current_fit, right_line.current_fit, plot)
+        left_fit, right_fit = find_lane_lines_using_previous_fit(warped, left_line.current_fit, right_line.current_fit, plot)
 
-    # Sanity check
-    if sanity_check(left_line, right_line):
-        left_line.best_fit = left_line.current_fit
-        right_line.best_fit = right_line.current_fit
-        left_line.detected = True
-        right_line.detected = True
-    else:
-        left_line.detected = False
-        right_line.detected = False
-    """
+    valid_lane = check_lane(left_fit, right_fit)
+    left_line.add_fit(left_fit, valid_lane)
+    right_line.add_fit(right_fit, valid_lane)
 
-    left_fit, right_fit = find_lane_lines_sliding_window(warped, plot)
+    # Draw the best fit
     result = draw_lane(img, warped, left_line.best_fit, right_line.best_fit)
     draw_radius_of_curvature(result,
             (left_line.radius_of_curvature+right_line.radius_of_curvature)/2)
+    draw_vehicle_position(result, left_line.best_fit, right_line.best_fit)
 
-    # FIXME: pw debug
-    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-    diff = right_fitx - left_fitx
-    min_width = np.min(diff)
-    max_width = np.max(diff)
-    cv2.putText(result, 'min_width = ' + str(round(min_width, 3))+' (pixel)',(50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
-    cv2.putText(result, 'max_width = ' + str(round(max_width, 3))+' (pixel)',(50,150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
-
-    # FIXME: pw debug
-    #if check_lane(left_fit, right_fit) == False:
-    if min_width < 550 or max_width > 850:
-        filename = "./video_frames_images/" + str(frame_counter) + ".jpg"
-        mpimg.imsave(filename, img)
-        filename = "./video_frames_processed_images/" + str(frame_counter) + ".jpg"
-        mpimg.imsave(filename, result)
-    frame_counter += 1
-
-    # Reset, not using the previous fit and no smoothing.
-    left_line.reset()
-    right_line.reset()
+    ## FIXME: pw debug
+    ##if check_lane(left_fit, right_fit) == False:
+    #if min_width < 550 or max_width > 850:
+        #filename = "./video_frames_images/" + str(left_line.) + ".jpg"
+        #mpimg.imsave(filename, img)
+        #filename = "./video_frames_processed_images/" + str(left_line.frame_counter) + ".jpg"
+        #mpimg.imsave(filename, result)
+    #"""
 
     if plot == True:
         plt.imshow(result)
@@ -398,35 +365,54 @@ def process_image(img, plot = False):
 
     return result
 
+def check_width(left_fit, right_fit):
+    # Check lane width
+    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    diff = right_fitx - left_fitx
+    min_width = np.min(diff)
+    max_width = np.max(diff)
+    if min_width < 550 or max_width > 850: # 550 <= valid lane width <= 850
+        return False
+
+    return True
+
 def check_lane(left_fit, right_fit):
-    """
-    if sanity_check(left_fit, right_fit) == False:
-        return False
-    """
+    if left_line.best_fit == None or right_line.best_fit == None:
+        return True # Take whatever we have right now
 
-    if left_line.check_curvature(left_fit) == False:
+    if not check_width(left_fit, right_fit):
         return False
 
-    if right_line.check_curvature(right_fit) == False:
+    if not left_line.check_line(left_fit):
+        return False
+
+    if not right_line.check_line(right_fit):
         return False
     
     return True
 
 image_processor = ImageProcessor()
-left_line = Line()
-right_line = Line()
 #img1 = process_image(mpimg.imread('./test_images/test4.jpg'), plot = True)
 #img2 = process_image(mpimg.imread('./test_images/test5.jpg'), plot = True)
 #quit()
  
 # FIXME: test on all images
-#run_all_test_images()
-#quit()
+run_all_test_images('./test_images', plot=True)
+quit()
 
 # FIXME: on videos
+left_line = Line()
+right_line = Line()
 from moviepy.editor import VideoFileClip
 output1 = './project_video_processed.mp4'
 clip1 = VideoFileClip("./project_video.mp4")
 processed_clip1 = clip1.fl_image(process_image) #NOTE: this function expects color images!!
 processed_clip1.write_videofile(output1, audio=False)
+
+#from moviepy.editor import VideoFileClip
+#output2 = './challenge_video_processed.mp4'
+#clip2 = VideoFileClip("./challenge_video.mp4")
+#processed_clip2 = clip2.fl_image(process_image) #NOTE: this function expects color images!!
+#processed_clip2.write_videofile(output2, audio=False)
 

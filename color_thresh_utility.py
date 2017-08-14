@@ -36,10 +36,10 @@ class ImageProcessor:
         #combined_binary[((mag_binary == 1) & (dir_binary == 1)) | (s_binary == 1) | (r_binary == 1)] = 1
 
         if plot == True:
-            plotTwo((gray, sobelx_binary), ('gray', 'sobelx'), ('gray', 'gray'))
-            plotTwo((s_channel, s_binary), ('s-channel', 's-threshold'), ('gray', 'gray'))
-            plotTwo((r_channel, r_binary), ('r-channel', 'r-threshold'), ('gray', 'gray'))
-            plotTwo((img, combined_binary), ('undistorted', 'combined'), ('', 'gray'))
+            plotTwo((gray, sobelx_binary), ('gray', 'sobelx'))
+            plotTwo((s_channel, s_binary), ('s-channel', 's-threshold'))
+            plotTwo((r_channel, r_binary), ('r-channel', 'r-threshold'))
+            plotTwo((img, combined_binary), ('undistorted', 'combined'))
 
         return combined_binary
 
@@ -114,14 +114,14 @@ def dir_thresh(gray, sobel_kernel=3, thresh=(0, np.pi/2)):
     return binary_thresh(grad_dir, thresh)
 
 # Helper function for displaying two images in parallel to compare.
-def plotTwo(image, title, colorMap=('',''), saveName=''):
+def plotTwo(image, title, saveName=''):
     fig, axis = plt.subplots(1, 2, figsize=(12, 10))
     fig.tight_layout()
     for i in range(2):
-        if (colorMap[i] == ''):
-            axis[i].imshow(image[i])
+        if len(image[i].shape) == 2:
+            axis[i].imshow(image[i], cmap='gray')
         else:
-            axis[i].imshow(image[i], cmap=colorMap[i])
+            axis[i].imshow(image[i])
         axis[i].set_title(title[i])
     if saveName != '':
         plt.savefig(saveName, bbox_inches='tight')
