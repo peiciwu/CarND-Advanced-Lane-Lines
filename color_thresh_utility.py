@@ -23,11 +23,13 @@ class ImageProcessor:
         s_channel = hls[:,:,2]
         r_channel = img[:,:,0]
 
-        sobelx_binary = abs_sobel_thresh(gray, 'x', 3, (30, 150))
+        #sobelx_binary = abs_sobel_thresh(gray, 'x', 3, (30, 150))
+        sobelx_binary = abs_sobel_thresh(gray, 'x', 3, (20, 150))
         #mag_binary = mag_thresh(gray, 9, (50, 255))
         #dir_binary = dir_thresh(gray, 15, (0.7, 1.3))
-        s_binary = binary_thresh(s_channel, (175, 250)) # On s-channel
-        r_binary = binary_thresh(r_channel, (230, 255)) # On r-channel
+        #s_binary = binary_thresh(s_channel, (170, 200)) # On s-channel
+        s_binary = binary_thresh(s_channel, (230, 250)) # On s-channel
+        r_binary = binary_thresh(r_channel, (215, 255)) # On r-channel
 
         combined_binary = np.zeros_like(sobelx_binary)
         combined_binary[(s_binary == 1) | (sobelx_binary == 1) | (r_binary == 1)] = 1
@@ -59,14 +61,15 @@ class ImageProcessor:
         h, w = undist.shape[:2]
         # Two lines on the "straight_lines1.jpg": (216, 705), (585, 454), (687, 450), (1073, 693)
         slope1 = (705-454)/(216-585);
-        slope2 = (450-693)/(687-1073)
+        slope2 = (450-693)/(670-1073)
         y = 460
-        #x0 = 220
-        x0 = 203
-        x4 = 1122
+        #x0 = 200
+        x0 = 195
+        #x4 = 1122
+        x4 = 1140
         #x1 =  (y-h)/slope1+x0 - 15
-        x1 =  (y-h)/slope1+x0 - 3
-        x2 = x4 - (h-y)/slope2 - 3
+        x1 =  (y-h)/slope1+x0
+        x2 = x4 - (h-y)/slope2
         #print ("x1: ", x1, ", x2: ", x2)
 
         src = np.float32([(x0,h), (x1,y), (x2,y), (x4,h)])
@@ -129,7 +132,8 @@ def plotTwo(image, title, colorMap=('',''), saveName=''):
 # - The lines on the image warped from straight_lines1.jpg should be vertical. 
 # - The curvel lines should be parallel to each other.
 image_processor = ImageProcessor()
-testFiles = glob.glob('./test_images/*.jpg')
+#testFiles = glob.glob('./test_images/*.jpg')
+testFiles = glob.glob('./my_test_images/*.jpg')
 for fname in testFiles:
     img = mpimg.imread(fname)
     undist = image_processor.undistort(img)
