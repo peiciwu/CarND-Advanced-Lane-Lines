@@ -131,11 +131,11 @@ def plotTwo(image, title, saveName=''):
 # Verify perspective_transform:
 # - The lines on the image warped from straight_lines1.jpg should be vertical. 
 # - The curvel lines should be parallel to each other.
-image_processor = ImageProcessor()
+processor = ImageProcessor()
 #testFiles = glob.glob('./test_images/*.jpg')
 testFiles = glob.glob('./my_test_images/*.jpg')
 for fname in testFiles:
     img = mpimg.imread(fname)
-    undist = image_processor.undistort(img)
-    warped = image_processor.perspective_transform(undist, plot=True)
+    undist = processor.undistort(img)
+    warped = processor.perspective_transform(undist, plot=True)
 """

@@ -5,7 +5,7 @@ import matplotlib.image as mpimg
 import glob
 import os
 import collections
-from color_thresh_utility import ImageProcessor, plotTwo
+from image_processor import ImageProcessor, plotTwo
 
 # Global parameters
 ym_per_pixel = 30/720 # meters per pixel in y dimension
@@ -17,13 +17,18 @@ num_recent_fits = 10 # max number of the past fits to average
 # Use window slding to detect lines
 def run_one_image(fname, plot = False, debug = False):
     img = mpimg.imread(fname)
+    name = ' (' + os.path.splitext(os.path.basename(fname))[0] + ')'
     # Pre-process all the images: distort, thresholding, and perspective transform
-    undist = image_processor.undistort(img)
-    name = '(' + os.path.splitext(os.path.basename(fname))[0] + ')'
+    undist = processor.undistort(img)
     plotTwo((img, undist), ('Original'+name, 'Undistorted'+name))
-    thresh = image_processor.thresholding(undist, debug)
+
+    thresh = processor.thresholding(undist, debug)
     plotTwo((undist, thresh), ('Undistorted'+name, 'Thresholding'+name))
-    warped = image_processor.perspective_transform(thresh, debug)
+
+    # For debugging, warp on the undistort image.
+    if debug:
+        processor.perspective_transform(undist, debug)
+    warped = processor.perspective_transform(thresh)
     plotTwo((thresh, warped), ('Thresholding'+name, 'Warped'+name))
 
     # Use window sliding to find the lines
@@ -223,7 +228,7 @@ def draw_lane(img, warped, left_fit, right_fit):
     cv2.polylines(color_warp, np.int32([pts_right]), isClosed=False, color=(0, 0, 255), thickness=20)
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    new_warp = cv2.warpPerspective(color_warp, image_processor.invM, (warped.shape[1], warped.shape[0])) 
+    new_warp = cv2.warpPerspective(color_warp, processor.invM, (warped.shape[1], warped.shape[0])) 
     # Combine the result with the original image
     result = cv2.addWeighted(img, 1, new_warp, 0.3, 0)
 
@@ -244,26 +249,7 @@ class Line:
         self.frame_counter = -1
         # number of consecutive failed frames 
         self.num_failed = 0
-        """
-        # x values of the last n fits of the line
-        self.recent_xfitted = [] 
-        #average x values of the fitted line over the last n iterations
-        self.bestx = None     
-        #polynomial coefficients averaged over the last n iterations
-        self.best_fit = None  
-        #polynomial coefficients for the most recent fit
-        self.current_fit = [np.array([False])]  
-        #radius of curvature of the line in some units
-        self.radius_of_curvature = None 
-        #distance in meters of vehicle center from the line
-        self.line_base_pos = None 
-        #difference in fit coefficients between last and new fits
-        self.diffs = np.array([0,0,0], dtype='float') 
-        #x values for detected line pixels
-        self.allx = None  
-        #y values for detected line pixels
-        self.ally = None
-        """
+
     def add_fit(self, fit, valid_line):
         self.frame_counter += 1
 
@@ -330,10 +316,10 @@ def draw_vehicle_position(img, left_fit, right_fit):
     
     cv2.putText(img, 'Vehicle position : ' + str(abs(round(diff, 3)))+' m'+l_or_r+' of center',(50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255),2)
 
-def process_image(img, plot = False):
-    undist = image_processor.undistort(img)
-    thresh = image_processor.thresholding(undist)
-    warped = image_processor.perspective_transform(thresh)
+def process_image(img, plot = False, dump = False):
+    undist = processor.undistort(img)
+    thresh = processor.thresholding(undist)
+    warped = processor.perspective_transform(thresh)
 
     if left_line.do_slide_window() or right_line.do_slide_window():
         left_fit, right_fit = find_lane_lines_sliding_window(warped, plot)
@@ -350,14 +336,11 @@ def process_image(img, plot = False):
             (left_line.radius_of_curvature+right_line.radius_of_curvature)/2)
     draw_vehicle_position(result, left_line.best_fit, right_line.best_fit)
 
-    ## FIXME: pw debug
-    ##if check_lane(left_fit, right_fit) == False:
-    #if min_width < 550 or max_width > 850:
-        #filename = "./video_frames_images/" + str(left_line.) + ".jpg"
-        #mpimg.imsave(filename, img)
-        #filename = "./video_frames_processed_images/" + str(left_line.frame_counter) + ".jpg"
-        #mpimg.imsave(filename, result)
-    #"""
+    if dump:
+        filename = "./video_frames_images/" + str(left_line.frame_counter) + ".jpg"
+        mpimg.imsave(filename, img)
+        filename = "./video_frames_processed_images/" + str(left_line.frame_counter) + ".jpg"
+        mpimg.imsave(filename, result)
 
     if plot == True:
         plt.imshow(result)
@@ -392,27 +375,22 @@ def check_lane(left_fit, right_fit):
     
     return True
 
-image_processor = ImageProcessor()
-#img1 = process_image(mpimg.imread('./test_images/test4.jpg'), plot = True)
-#img2 = process_image(mpimg.imread('./test_images/test5.jpg'), plot = True)
-#quit()
- 
-# FIXME: test on all images
-run_all_test_images('./test_images', plot=True)
-quit()
+def process_video(in_name, out_name, plot = False, dump = False):
+    from moviepy.editor import VideoFileClip
+    output1 = './project_video_processed.mp4'
+    clip1 = VideoFileClip("./project_video.mp4")
+    processed_clip1 = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+    processed_clip1.write_videofile(output1, audio=False)
 
-# FIXME: on videos
-left_line = Line()
-right_line = Line()
-from moviepy.editor import VideoFileClip
-output1 = './project_video_processed.mp4'
-clip1 = VideoFileClip("./project_video.mp4")
-processed_clip1 = clip1.fl_image(process_image) #NOTE: this function expects color images!!
-processed_clip1.write_videofile(output1, audio=False)
 
-#from moviepy.editor import VideoFileClip
-#output2 = './challenge_video_processed.mp4'
-#clip2 = VideoFileClip("./challenge_video.mp4")
-#processed_clip2 = clip2.fl_image(process_image) #NOTE: this function expects color images!!
-#processed_clip2.write_videofile(output2, audio=False)
+MODE = 1 # 1 - Images, 2 - Videos
+
+processor = ImageProcessor()
+
+if MODE == 1:
+    run_all_test_images('./test_images', plot=True, debug=False)
+elif MODE == 2:
+    left_line = Line()
+    right_line = Line()
+    process_video('./project_video.mp4', 'project_video_processed.mp4')
 
