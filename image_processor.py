@@ -59,7 +59,7 @@ class ImageProcessor:
         undist = self.undistort(example)
         # Get perspective transform matrix
         h, w = undist.shape[:2]
-        # Two lines on the "straight_lines1.jpg": (216, 705), (585, 454), (687, 450), (1073, 693)
+        # Two lines on the "straight_lines1.jpg": (216, 705), (585, 454), (693, 450), (1073, 693)
         slope1 = (705-454)/(216-585);
         slope2 = (450-693)/(670-1073)
         y = 460
@@ -74,6 +74,7 @@ class ImageProcessor:
 
         src = np.float32([(x0,h), (x1,y), (x2,y), (x4,h)])
         dst = np.float32([(250,h), (250,0), (w-300,0), (w-300, h)])
+
         M = cv2.getPerspectiveTransform(src, dst)
         invM = cv2.getPerspectiveTransform(dst, src)
 
@@ -132,8 +133,8 @@ def plotTwo(image, title, saveName=''):
 # - The lines on the image warped from straight_lines1.jpg should be vertical. 
 # - The curvel lines should be parallel to each other.
 processor = ImageProcessor()
-#testFiles = glob.glob('./test_images/*.jpg')
-testFiles = glob.glob('./my_test_images/*.jpg')
+testFiles = glob.glob('./test_images/*.jpg')
+#testFiles = glob.glob('./my_test_images/*.jpg')
 for fname in testFiles:
     img = mpimg.imread(fname)
     undist = processor.undistort(img)

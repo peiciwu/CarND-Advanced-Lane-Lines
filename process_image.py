@@ -389,6 +389,8 @@ processor = ImageProcessor()
 
 if MODE == 1:
     run_all_test_images('./test_images', plot=True, debug=False)
+    #run_all_test_images('./my_test_images/other_types_test_images/', plot=True, debug=True)
+    #run_all_test_images('./my_test_images', plot=True, debug=True)
 elif MODE == 2:
     left_line = Line()
     right_line = Line()
