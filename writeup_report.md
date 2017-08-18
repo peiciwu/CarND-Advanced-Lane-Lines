@@ -17,7 +17,7 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 [image1]: ./output_images/corners.png "Finding Corners"
-[image2]: ./output_image/chessboard_undistort.png "Chessboard Undistorted"
+[image2]: ./output_images/chessboard_undistort.png "Chessboard Undistorted"
 [image3]: ./output_images/undistorted.png "Undistort Example"
 [image4]: ./output_images/thresholding.png "Thresholding Example"
 [image4]: ./output_images/warp_straight_lines.png "Warp Example - Straight Lines"
