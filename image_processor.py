@@ -7,10 +7,11 @@ import glob
 
 class ImageProcessor:
     def __init__(self):
-        # Read in the saved camera calibration matrix and distortion cofficients
+        # Read in the saved camera calibration matrix and distortion coefficients
         dist_pickle = pickle.load(open("calibration.p", "rb"))
         self.mtx = dist_pickle["mtx"]
         self.dist = dist_pickle["dist"]
+        # Get the parameters for perspective transform
         self.src, self.dst, self.M, self.invM = self.get_perspective_transform_parameters()
 
     def undistort(self, img):
