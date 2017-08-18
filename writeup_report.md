@@ -20,10 +20,10 @@ The goals / steps of this project are the following:
 [image2]: ./output_images/chessboard_undistort.png "Chessboard Undistorted"
 [image3]: ./output_images/undistorted.png "Undistort Example"
 [image4]: ./output_images/thresholding.png "Thresholding Example"
-[image4]: ./output_images/warp_straight_lines.png "Warp Example - Straight Lines"
-[image5]: ./output_images/warp_curve.png "Warp Example - Curve lines"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
+[image5]: ./output_images/warp_straight_lines.png "Warp Example - Straight Lines"
+[image6]: ./output_images/warp_curve.png "Warp Example - Curve lines"
+[image7]: ./examples/color_fit_lines.jpg "Fit Visual"
+[image8]: ./examples/example_output.jpg "Output"
 [video1]: ./project_video.mp4 "Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
@@ -76,9 +76,9 @@ I first worked on one straight line image, drew two line that are parallel to th
 
 Below are two example images. One is a straight line image where the warped lines are (almost) vertical. The other one is a curve image where the warped line are (almost) parallel. 
 
-![alt text][image4]
-
 ![alt text][image5]
+
+![alt text][image6]
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
