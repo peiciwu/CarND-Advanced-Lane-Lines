@@ -20,7 +20,7 @@ The goals / steps of this project are the following:
 [image2]: ./output_images/chessboard_undistort.png "Chessboard Undistorted"
 [image3]: ./output_images/undistorted.png "Undistort Example"
 [image4]: ./output_images/thresholding.png "Thresholding Example"
-[image5]: ./output_images/warp_straight_lines.png "Warp Example - Straight Lines"
+[image5]: ./output_images/warp_straight.png "Warp Example - Straight Lines"
 [image6]: ./output_images/warp_curve.png "Warp Example - Curve lines"
 [image7]: ./examples/color_fit_lines.jpg "Fit Visual"
 [image8]: ./examples/example_output.jpg "Output"
