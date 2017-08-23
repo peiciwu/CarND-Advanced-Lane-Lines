@@ -23,8 +23,8 @@ The goals / steps of this project are the following:
 [image5]: ./output_images/warp_straight.png "Warp Example - Straight Lines"
 [image6]: ./output_images/warp_curve.png "Warp Example - Curve lines"
 [image7]: ./output_images/window_slide.png "Fit Visual"
-[image8]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
+[image8]: ./output_images/draw_lane.png "Output"
+[video1]: ./project_video_processed.mp4 "Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
@@ -90,9 +90,9 @@ Below is an example of running the window sliding procedure.
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-The radius of curvature for the left line or the right line is calculated in `cal_radius_of_curvature()` in `process_image.py`. The radius of curvature of the lane is sum of the radius of curvatures of the left and the right line divided by two. The radius of curvature is obtained by mapping the fitted pixels from the warped image to the real world space. Assume the lane is about 3.7 meters wide and 30 meters long, and the projected line in the warped image is 700 pixels wide and 720 pixels long. A new second order polynomial is fitted using the converted points, then the radius of curvature can be obtained by the equation shown in the class slides.
+The radius of curvature for the left line or the right line is calculated in function `cal_radius_of_curvature()` in `process_image.py`. The radius of curvature of the lane is sum of the radius of curvatures of the left and the right line divided by two. The radius of curvature is obtained by mapping the fitted pixels from the warped image to the real world space. Assume the lane is about 3.7 meters wide and 30 meters long, and the projected line in the warped image is 700 pixels wide and 720 pixels long. A new second order polynomial is fitted using the converted points, then the radius of curvature can be obtained by the equation shown in the class slides.
 
-The position of the vehicle with respect to the center of the lane is calculated in `draw_vehicle_position()` in `process_image.py`. Using the fitted polynomial of the left and the right line, the left-bottom and right-bottom points can be calculated using the largest y coordinate. Then the center of the lane and the position of the vehicle with respect to the center can be calculate in the following manner:    
+The position of the vehicle with respect to the center of the lane is implemented in function `draw_vehicle_position()` in `process_image.py`. Using the fitted polynomial of the left and the right line, the left-bottom and right-bottom points can be calculated using the largest y coordinate. Then the center of the lane and the position of the vehicle with respect to the center can be calculate in the following manner:    
 
 ```python
 lane_center = (left_bottom + right_bottom) / 2
@@ -102,9 +102,9 @@ diff = (vehicle_pos - lane_center) * xm_per_pixel
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+I implemented this step in `process_image.py` in the function `draw_lane()`.  Here is an example of my result on a test image:
 
-![alt text][image6]
+![alt text][image8]
 
 ---
 
@@ -112,7 +112,7 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./project_video_processed.mp4)
 
 ---
 
